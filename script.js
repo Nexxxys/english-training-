@@ -256,15 +256,22 @@ function getDirection() {
   return lastRandomSide;
 }
 
-function buildEnglishSide(verb) {
+function getRandomEnglishForm(verb) {
+  const forms = [
+    { label: "Infinitive", value: verb.base },
+    { label: "Past Simple", value: verb.past },
+    { label: "Past Participle", value: verb.participle }
+  ];
+
+  return forms[Math.floor(Math.random() * forms.length)];
+}
+
+function buildEnglishQuestionSide(form) {
   return `
     <span class="card-content">
-      <span class="card-kicker">english</span>
-      <span class="card-main">${escapeHtml(verb.base)}</span>
-      <span class="forms-row" aria-label="Формы глагола">
-        <span class="form-pill">Past Simple: ${escapeHtml(verb.past)}</span>
-        <span class="form-pill">Past Participle: ${escapeHtml(verb.participle)}</span>
-      </span>
+      <span class="card-kicker">${escapeHtml(form.label)}</span>
+      <span class="card-main">${escapeHtml(form.value)}</span>
+      <span class="card-sub">Назови остальные формы этого глагола.</span>
     </span>
   `;
 }
@@ -274,16 +281,31 @@ function buildTranslationSide(verb) {
     <span class="card-content">
       <span class="card-kicker">перевод</span>
       <span class="card-main">${escapeHtml(verb.translation)}</span>
+      <span class="card-sub">Назови три формы глагола.</span>
+    </span>
+  `;
+}
+function buildAnswerSide(verb) {
+  return `
+    <span class="card-content">
+      <span class="card-kicker">правильный ответ</span>
+      <span class="card-main">${escapeHtml(verb.base)}</span>
+      <span class="forms-row" aria-label="Формы глагола">
+        <span class="form-pill">Infinitive: ${escapeHtml(verb.base)}</span>
+        <span class="form-pill">Past Simple: ${escapeHtml(verb.past)}</span>
+        <span class="form-pill">Past Participle: ${escapeHtml(verb.participle)}</span>
+      </span>
+      <span class="card-sub">${escapeHtml(verb.translation)}</span>
     </span>
   `;
 }
 
-function buildFront(verb, direction) {
-  return direction === "translation" ? buildTranslationSide(verb) : buildEnglishSide(verb);
+function buildFront(verb, direction, form) {
+  return direction === "translation" ? buildTranslationSide(verb) : buildEnglishQuestionSide(form);
 }
 
 function buildBack(verb, direction) {
-  return direction === "translation" ? buildEnglishSide(verb) : buildTranslationSide(verb);
+  return buildAnswerSide(verb);
 }
 
 function renderCard() {
@@ -308,13 +330,14 @@ function renderCard() {
 
   const verb = activeDeck[cardIndex];
   const direction = getDirection();
+  const form = getRandomEnglishForm(verb);
   isFlipped = false;
 
   els.cardProgress.textContent = `${cardIndex + 1} / ${activeDeck.length}`;
   els.repeatEmpty.hidden = true;
   els.flashcard.hidden = false;
   els.cardActions.hidden = false;
-  els.cardFront.innerHTML = buildFront(verb, direction);
+  els.cardFront.innerHTML = buildFront(verb, direction, form);
   els.cardBack.innerHTML = buildBack(verb, direction);
   els.cardFront.classList.remove("is-hidden");
   els.cardBack.classList.add("is-hidden");

@@ -1,6 +1,6 @@
 // Increase this value only when a new version of the published site should be
 // delivered. Until then visitors keep using the current cached app files.
-const CACHE_VERSION = "irregular-verbs-v1";
+const CACHE_VERSION = "irregular-verbs-v2";
 const APP_FILES = ["./", "./index.html", "./styles.css", "./script.js"];
 
 self.addEventListener("install", (event) => {
