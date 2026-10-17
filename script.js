@@ -151,16 +151,22 @@ const els = {
   verbGrid: document.querySelector("#verb-grid")
 };
 
+// Progress is stored independently of the cached application files. It remains
+// available after closing the browser, editor, or project folder.
 const STORAGE_KEY = "irregular-verbs-trainer-progress-v1";
+const SETTINGS_KEY = "irregular-verbs-trainer-settings-v1";
 
 let deck = [...verbs];
 let repeatDeck = [];
-let activeMode = "cards";
-let cardIndex = 0;
-let writeIndex = 0;
+const savedSettings = loadSettings();
+let activeMode = savedSettings.mode;
+let cardIndex = savedSettings.cardIndex;
+let writeIndex = savedSettings.writeIndex;
 let isFlipped = false;
 let lastRandomSide = "base";
 let progress = loadProgress();
+els.directionSelect.value = savedSettings.direction;
+
 
 function loadProgress() {
   try {
@@ -175,13 +181,56 @@ function loadProgress() {
 }
 
 function saveProgress() {
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify({
-      learned: [...progress.learned],
-      repeat: [...progress.repeat]
-    })
-  );
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        learned: [...progress.learned],
+        repeat: [...progress.repeat]
+      })
+    );
+  } catch {
+    // The trainer still works if the browser has disabled local storage.
+  }
+}
+
+function loadSettings() {
+  const defaults = { mode: "cards", direction: "base", cardIndex: 0, writeIndex: 0 };
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
+    const mode = ["cards", "review", "write", "list"].includes(saved?.mode)
+      ? saved.mode
+      : defaults.mode;
+    const direction = ["base", "translation", "random"].includes(saved?.direction)
+      ? saved.direction
+      : defaults.direction;
+
+    return {
+      mode,
+      direction,
+      cardIndex: Number.isInteger(saved?.cardIndex) && saved.cardIndex >= 0 ? saved.cardIndex : 0,
+      writeIndex: Number.isInteger(saved?.writeIndex) && saved.writeIndex >= 0 ? saved.writeIndex : 0
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+function saveSettings() {
+  try {
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        mode: activeMode,
+        direction: els.directionSelect.value,
+        cardIndex,
+        writeIndex
+      })
+    );
+  } catch {
+    // The trainer still works if the browser has disabled local storage.
+  }
 }
 
 function escapeHtml(value) {
@@ -251,6 +300,7 @@ function renderCard() {
     els.cardFront.innerHTML = "";
     els.cardBack.innerHTML = "";
     updateStats();
+    saveSettings();
     return;
   }
 
@@ -270,6 +320,7 @@ function renderCard() {
   els.cardBack.classList.add("is-hidden");
   els.flipCard.textContent = "Показать ответ";
   updateStats();
+  saveSettings();
 }
 
 function flipCurrentCard() {
@@ -358,6 +409,7 @@ function renderWrite() {
   els.writeFeedback.textContent = "";
   els.writeFeedback.className = "feedback";
   els.pastInput.focus();
+  saveSettings();
 }
 
 function normalizeAnswer(value) {
@@ -480,6 +532,8 @@ function switchMode(mode) {
   if (mode === "list") {
     renderVerbList();
   }
+
+  saveSettings();
 }
 
 function getActiveCardDeck() {
@@ -516,7 +570,10 @@ els.nextCard.addEventListener("click", () => changeCard(1));
 els.shuffleCards.addEventListener("click", shuffleDeck);
 els.knowCard.addEventListener("click", () => markCard("learned"));
 els.repeatCard.addEventListener("click", () => markCard("repeat"));
-els.directionSelect.addEventListener("change", renderCard);
+els.directionSelect.addEventListener("change", () => {
+  saveSettings();
+  renderCard();
+});
 els.writeForm.addEventListener("submit", checkWriteAnswer);
 els.skipWrite.addEventListener("click", nextWriteCard);
 els.verbSearch.addEventListener("input", renderVerbList);
@@ -540,5 +597,14 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-renderCard();
+switchMode(activeMode);
 renderVerbList();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {
+      // The website also works when opened directly from a file, where service
+      // workers are unavailable. GitHub Pages and local web servers support it.
+    });
+  });
+}
